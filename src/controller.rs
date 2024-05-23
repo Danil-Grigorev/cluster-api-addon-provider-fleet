@@ -1,8 +1,10 @@
 use crate::api::capi_cluster::Cluster;
 use crate::api::capi_clusterclass::ClusterClass;
+use crate::api::fleet_addon_config::FleetAddonConfig;
 use crate::api::fleet_cluster;
 use crate::api::fleet_clustergroup::ClusterGroup;
 use crate::controllers::controller::{Context, FleetController};
+use crate::controllers::SyncError;
 use crate::metrics::Diagnostics;
 use crate::{Error, Metrics};
 
@@ -62,6 +64,25 @@ impl State {
     }
 }
 
+/// Initialize the FleetAddonConfig controller
+pub async fn run_config_controller(state: State) {
+    let client = Client::try_default()
+        .await
+        .expect("failed to create kube Client");
+    let configs = Api::<FleetAddonConfig>::all(client.clone());
+
+    Controller::new(configs, Config::default().any_semantic())
+        .shutdown_on_signal()
+        .run(
+            FleetAddonConfig::reconcile,
+            error_policy,
+            state.to_context(client.clone()),
+        )
+        .filter_map(|x| async move { std::result::Result::ok(x) })
+        .for_each(|_| futures::future::ready(()))
+        .await;
+}
+
 /// Initialize the controller and shared state (given the crd is installed)
 pub async fn run_cluster_controller(state: State) {
     let client = Client::try_default()
@@ -105,7 +126,10 @@ pub async fn run_cluster_class_controller(state: State) {
 }
 
 fn error_policy(doc: Arc<impl kube::Resource>, error: &Error, ctx: Arc<Context>) -> Action {
-    warn!("reconcile failed: {:?}", error);
+    match error {
+        Error::FleetError(SyncError::EarlyReturn) => (),
+        _ => warn!("reconcile failed: {:?}", error),
+    };
     ctx.metrics.reconcile_failure(doc, error);
     Action::requeue(Duration::from_secs(5 * 60))
 }

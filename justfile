@@ -128,7 +128,7 @@ install-fleet: _create-out-dir
     kubectl config view -o json --raw | jq -r '.clusters[].cluster["certificate-authority-data"]' | base64 -d > _out/ca.pem
     API_SERVER_URL=`kubectl config view -o json --raw | jq -r '.clusters[] | select(.name=="kind-dev").cluster["server"]'`
     helm -n cattle-fleet-system install --create-namespace --wait fleet-crd fleet/fleet-crd
-    helm install --create-namespace -n cattle-fleet-system --set apiServerURL=$API_SERVER_URL --set-file apiServerCA=_out/ca.pem fleet fleet/fleet --wait
+    helm install --create-namespace -n cattle-fleet-system --set apiServerURL=$API_SERVER_URL fleet fleet/fleet --wait
 
 # Install cluster api and any providers
 install-capi: _download-clusterctl
@@ -158,8 +158,8 @@ test-cluster-class-import: start-dev
     just deploy-crs
     kubectl wait pods --for=condition=Ready --timeout=300s --all --all-namespaces
     kubectl wait clustergroups.fleet.cattle.io --timeout=300s --for=jsonpath='{.status.clusterCount}=1' quick-start
-    kubectl wait clustergroups.fleet.cattle.io --timeout=300s --for=condition=Ready quick-start
-    kubectl wait clusters.fleet.cattle.io --timeout=300s --for=condition=Ready capi-quickstart
+    kubectl wait clustergroups.fleet.cattle.io --timeout=300s --for=condition=Ready=true quick-start
+    kubectl wait clusters.fleet.cattle.io --timeout=300s --for=condition=Ready=true capi-quickstart
 
 # Install kopium
 [private]

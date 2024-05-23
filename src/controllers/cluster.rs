@@ -138,7 +138,21 @@ impl FleetController for Cluster {
             .find(|&enabled| enabled)
             .ok_or(SyncError::EarlyReturn)?;
 
-        self.cluster_ready().ok_or(SyncError::EarlyReturn)?;
+        let ready = self.cluster_ready();
+
+        #[cfg(feature = "agent-initiated")]
+        let ready = {
+            let agent_initiated = config
+                .spec
+                .cluster
+                .as_ref()
+                .and_then(|c| c.agent_initiated)
+                .is_some_and(|agent_initiated| agent_initiated)
+                .then(|| self);
+            ready.or(agent_initiated)
+        };
+
+        ready.ok_or(SyncError::EarlyReturn)?;
 
         Ok(FleetClusterBundle {
             fleet: self.to_cluster(config.spec.cluster.clone()),

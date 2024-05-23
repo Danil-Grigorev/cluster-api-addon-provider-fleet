@@ -9,6 +9,7 @@ bases:
 - ../rbac
 - ../manager
 - ../crds
+- ../rbac-cluster
 
 patchesStrategicMerge:
 # Provide customizable hook for make targets.
