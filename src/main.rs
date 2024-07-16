@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Init k8s controller state
     let state = State::new();
-    let cluster_controller = controller::run_cluster_controller(state.clone());
+    let cluster_controller = controller::run_cluster_controllers(state.clone());
     let cluster_class_controller = controller::run_cluster_class_controller(state.clone());
 
     // Start web server

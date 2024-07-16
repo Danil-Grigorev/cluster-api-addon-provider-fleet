@@ -156,7 +156,7 @@ where
             .map_err(Error::ConfigFetch)?
             .unwrap_or_default();
 
-        let cluster_api: Api<Self> = Api::namespaced(ctx.client.clone(), namespace.as_str());
+        let cluster_api = Api::namespaced(ctx.client.clone(), namespace.as_str());
         debug!("Reconciling \"{}\" in {}", name, namespace);
 
         finalizer(&cluster_api, FLEET_FINALIZER, self, |event| async {

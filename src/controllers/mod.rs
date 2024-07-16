@@ -57,3 +57,4 @@ pub enum PatchError {
 pub mod cluster;
 pub mod cluster_class;
 pub mod controller;
+pub mod static_groups;

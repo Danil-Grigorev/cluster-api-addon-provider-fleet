@@ -8,6 +8,7 @@ use crate::{Error, Metrics};
 
 use futures::StreamExt;
 
+use kube::runtime::{predicates, reflector, watcher, WatchStreamExt};
 use kube::{
     api::Api,
     client::Client,
@@ -63,14 +64,30 @@ impl State {
 }
 
 /// Initialize the controller and shared state (given the crd is installed)
-pub async fn run_cluster_controller(state: State) {
+pub async fn run_cluster_controllers(state: State) {
     let client = Client::try_default()
         .await
         .expect("failed to create kube Client");
     let clusters = Api::<Cluster>::all(client.clone());
     let fleet = Api::<fleet_cluster::Cluster>::all(client.clone());
 
-    Controller::new(clusters, Config::default().any_semantic())
+    let (reader, writer) = reflector::store_shared(128);
+    let subscriber = writer
+        .subscribe()
+        .expect("subscribers can only be created from shared stores");
+
+    let clusters = watcher(clusters, watcher::Config::default())
+        .reflect_shared(writer)
+        .touched_objects()
+        .predicate_filter(predicates::resource_version)
+        .for_each(|ev| async move {
+            match ev {
+                Ok(obj) => tracing::info!("got cluster {obj:?}"),
+                Err(error) => tracing::error!(%error, "received error"),
+            }
+        });
+
+    let controller = Controller::for_shared_stream(subscriber.clone(), reader.clone())
         .owns(fleet, Config::default().any_semantic())
         .shutdown_on_signal()
         .run(
@@ -79,8 +96,24 @@ pub async fn run_cluster_controller(state: State) {
             state.to_context(client.clone()),
         )
         .filter_map(|x| async move { std::result::Result::ok(x) })
-        .for_each(|_| futures::future::ready(()))
-        .await;
+        .for_each(|_| futures::future::ready(()));
+
+    let group_all_controller = Controller::for_shared_stream(subscriber, reader)
+        .shutdown_on_signal()
+        .run(
+            Cluster::reconcile,
+            error_policy,
+            state.to_context(client.clone()),
+        )
+        .filter_map(|x| async move { std::result::Result::ok(x) })
+        .for_each(|_| futures::future::ready(()));
+
+    // Consume events as they come
+    tokio::select! {
+      _ = clusters => {},
+      _ = controller => {},
+      _ = group_all_controller => {},
+    }
 }
 
 /// Initialize the controller and shared state (given the crd is installed)
