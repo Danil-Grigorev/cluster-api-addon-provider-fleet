@@ -8,6 +8,7 @@ on:
 env:
   TAG: ${{ github.ref_name }}
   REGISTRY: ghcr.io
+  ORG: "ghcr.io/danil-grigorev"
 
 jobs:
   build:
@@ -29,9 +30,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build docker image
-        run: just TAG=${{ env.TAG }} build-base
+        run: just TAG=${{ env.TAG }} ORG=${{ env.ORG }} build-base
       - name: Push docker image
-        run: just TAG=${{ env.TAG }} docker-push
+        run: just TAG=${{ env.TAG }} ORG=${{ env.ORG }} docker-push
   release:
     runs-on: ubuntu-latest
     permissions:
