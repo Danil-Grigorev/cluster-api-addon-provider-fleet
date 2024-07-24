@@ -75,6 +75,9 @@ pub struct ClusterConfig {
     /// Naming settings for the fleet cluster
     pub naming: Option<NamingStrategy>,
 
+    // Install provides options to automatically install fleet and fleet crds from the specified location
+    pub install: Option<InstallSettings>,
+
     /// Namespace selection for the fleet agent
     pub agent_namespace: Option<String>,
 
@@ -133,6 +136,7 @@ impl Default for ClusterConfig {
             agent_initiated: Some(true),
             selectors: Default::default(),
             patch_resource: Some(true),
+            install: Some(Default::default()),
         }
     }
 }
@@ -148,6 +152,14 @@ impl NamingStrategy {
             None => name,
         })
     }
+}
+
+/// Install settings specify settings for the fleet agent installation
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallSettings {
+    // Fleet chart url provide source fleet chart url to install fleet and fleet agent from
+    fleet_chart_url: Option<String>,
 }
 
 /// Selectors is controlling Fleet import strategy settings.
