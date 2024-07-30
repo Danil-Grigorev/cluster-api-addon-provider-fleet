@@ -20,6 +20,7 @@ use rand::distributions::{Alphanumeric, DistString as _};
 use tokio::sync::Mutex;
 use tracing::warn;
 
+use std::hash::{DefaultHasher, Hash as _, Hasher as _};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -58,7 +59,7 @@ impl Cluster {
             None | Some(ClusterTopology { .. }) => self.labels().clone(),
         };
 
-        let agent_tolerations = Some(vec![ClusterAgentTolerations{
+        let agent_tolerations = Some(vec![ClusterAgentTolerations {
             effect: Some("NoSchedule".into()),
             operator: Some("Equal".into()),
             key: Some("node.kubernetes.io/not-ready".into()),
@@ -180,6 +181,18 @@ impl FleetController for Cluster {
 }
 
 impl Cluster {
+    /// Cluster predicate for the class name. Only trigger reconciles on the class name change
+    pub fn spec_predicate(obj: &Self) -> Option<u64> {
+        let mut hasher = DefaultHasher::new();
+        obj.spec
+            .topology
+            .as_ref()
+            .unwrap_or(&Default::default())
+            .class
+            .hash(&mut hasher);
+        Some(hasher.finish())
+    }
+
     pub fn cluster_ready(&self) -> Option<&Self> {
         let status = self.status.clone()?;
         let cp_ready = status.control_plane_ready.filter(|&ready| ready);
@@ -207,7 +220,7 @@ impl Cluster {
     }
 
     pub async fn reconcile_ns(
-        _: Arc<Namespace>,
+        _: Arc<impl Resource>,
         invoke_reconcile: Arc<Mutex<Sender<()>>>,
     ) -> crate::Result<Action> {
         let mut sender = invoke_reconcile.lock().await;
