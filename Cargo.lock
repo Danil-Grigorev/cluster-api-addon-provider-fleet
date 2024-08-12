@@ -562,6 +562,7 @@ dependencies = [
  "anyhow",
  "assert-json-diff",
  "chrono",
+ "cluster-api-rs",
  "futures",
  "http 1.1.0",
  "hyper 1.4.1",
@@ -582,6 +583,18 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "cluster-api-rs"
+version = "1.7.4"
+source = "git+https://github.com/Danil-Grigorev/cluster-api-rs.git?branch=testing-tag#30ef5839c2927d21b2fd78557522314b2af8a996"
+dependencies = [
+ "k8s-openapi",
+ "kube",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2323,9 +2336,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.121"
+version = "1.0.122"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ab380d7d9f22ef3f21ad3e6c1ebe8e4fc7a2000ccba2e4d71fc96f15b2cb609"
+checksum = "784b6203951c57ff748476b126ccb5e8e2959a5c19e5c617ab1956be3dbc68da"
 dependencies = [
  "itoa",
  "memchr",

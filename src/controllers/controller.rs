@@ -11,11 +11,13 @@ use kube::api::{Patch, PatchParams, PostParams};
 use kube::runtime::events::{Event, EventType};
 use kube::runtime::finalizer;
 
+use kube::{Resource, ResourceExt};
 use kube::{api::Api, client::Client, runtime::controller::Action};
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{self, debug, info, instrument};
@@ -141,24 +143,30 @@ pub(crate) trait FleetBundle {
     async fn sync(&self, ctx: Arc<Context>) -> Result<Action, impl Into<SyncError>>;
 }
 
+pub(crate) trait ControllerWrapper {
+    fn resource(&self) -> &(impl ResourceExt + Resource<DynamicType = ()>);
+}
+
 pub(crate) trait FleetController
 where
     Self: std::fmt::Debug,
     Self: Clone + Serialize + DeserializeOwned,
-    Self: kube::Resource<DynamicType = (), Scope = NamespaceResourceScope>,
-    Self: kube::ResourceExt,
+    Self: ControllerWrapper,
 {
     type Bundle: FleetBundle;
+    // type Target: ?Sized
+    //     + kube::Resource<DynamicType = (), Scope = NamespaceResourceScope>
+    //     + kube::ResourceExt;
 
-    #[instrument(skip_all, fields(trace_id = display(telemetry::get_trace_id()), name = self.name_any(), namespace = self.namespace()), err)]
+    #[instrument(skip_all, fields(trace_id = display(telemetry::get_trace_id()), name = self.resource().name_any(), namespace = self.resource().namespace()), err)]
     async fn reconcile(self: Arc<Self>, ctx: Arc<Context>) -> crate::Result<Action> {
         ctx.diagnostics.write().await.last_event = Utc::now();
 
-        let namespace = self.namespace().unwrap_or_default();
+        let namespace = self.resource().namespace().unwrap_or_default();
         let api = Api::namespaced(ctx.client.clone(), namespace.as_str());
         debug!("Reconciling");
 
-        finalizer(&api, FLEET_FINALIZER, self, |event| async {
+        finalizer(&api, FLEET_FINALIZER, self.resource(), |event| async {
             match event {
                 finalizer::Event::Apply(c) => match c.to_bundle(ctx.clone()).await? {
                     Some(bundle) => bundle
@@ -179,12 +187,12 @@ where
         ctx.diagnostics
             .read()
             .await
-            .recorder(ctx.client.clone(), self)
+            .recorder(ctx.client.clone(), self.resource())
             // Cleanup is perfomed by owner reference
             .publish(Event {
                 type_: EventType::Normal,
                 reason: "DeleteRequested".into(),
-                note: Some(format!("Delete `{}`", self.name_any())),
+                note: Some(format!("Delete `{}`", self.resource().name_any())),
                 action: "Deleting".into(),
                 secondary: None,
             })

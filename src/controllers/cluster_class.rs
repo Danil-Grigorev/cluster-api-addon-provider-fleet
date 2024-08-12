@@ -1,12 +1,12 @@
-use crate::api::capi_clusterclass::ClusterClass;
-
 use crate::api::fleet_addon_config::{ClusterClassConfig, FleetAddonConfig};
 use crate::api::fleet_clustergroup::{ClusterGroup, ClusterGroupSelector, ClusterGroupSpec};
 
+use cluster_api_rs::capi_clusterclass::ClusterClass;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
 use kube::api::ObjectMeta;
 
 use kube::{api::ResourceExt, runtime::controller::Action, Resource};
+use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
@@ -17,13 +17,16 @@ use super::{BundleResult, GroupSyncResult};
 
 pub static CLUSTER_CLASS_LABEL: &str = "clusterclass-name.fleet.addons.cluster.x-k8s.io";
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct ClusterClassReconcile(pub ClusterClass);
+
 pub struct FleetClusterClassBundle {
     fleet_group: ClusterGroup,
     config: FleetAddonConfig,
 }
 
-impl From<&ClusterClass> for ClusterGroup {
-    fn from(cluster_class: &ClusterClass) -> Self {
+impl From<&ClusterClassReconcile> for ClusterGroup {
+    fn from(cluster_class: &ClusterClassReconcile) -> Self {
         Self {
             metadata: ObjectMeta {
                 name: Some(cluster_class.name_any()),
@@ -64,7 +67,7 @@ impl FleetBundle for FleetClusterClassBundle {
     }
 }
 
-impl FleetController for ClusterClass {
+impl FleetController for ClusterClassReconcile {
     type Bundle = FleetClusterClassBundle;
 
     async fn to_bundle(&self, ctx: Arc<Context>) -> BundleResult<Option<FleetClusterClassBundle>> {
