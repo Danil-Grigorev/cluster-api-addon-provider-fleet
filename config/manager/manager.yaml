@@ -29,10 +29,6 @@ spec:
           image: controller:latest
           args:
             - --helm-install
-          volumeMounts:
-          - name: helm-kubeconfig
-            readOnly: true
-            mountPath: /var/run/secrets/kubernetes.io/serviceaccount
         - image: controller:latest
           imagePullPolicy: Always
           name: manager
@@ -57,7 +53,3 @@ spec:
           #     memory: 64Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
-      volumes:
-      - name: helm-kubeconfig
-        secret:
-          secretName: caapf-helm-manager

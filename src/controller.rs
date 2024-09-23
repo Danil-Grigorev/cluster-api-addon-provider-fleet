@@ -12,6 +12,7 @@ use futures::channel::mpsc;
 use futures::StreamExt;
 
 use k8s_openapi::api::core::v1::Namespace;
+use kube::client::ConfigExt;
 use kube::runtime::{metadata_watcher, predicates, reflector, watcher, WatchStreamExt};
 use kube::ResourceExt as _;
 use kube::{
@@ -99,9 +100,12 @@ pub async fn run_fleet_addon_config_controller(state: State) {
 }
 
 pub async fn run_fleet_helm_controller(state: State) {
-    let client = Client::try_default()
+    let mut config = kube::Config::infer()
         .await
-        .expect("failed to create kube Client");
+        .expect("failed to create kube Client config");
+    config.auth_info.impersonate =
+        Some("system:serviceaccount:caapf-system:caapf-helm-manager".into());
+    let client = Client::try_from(config).expect("failed to create kube Client");
     let api: Api<FleetAddonConfig> = Api::all(client.clone());
     let fleet_addon_config_controller = Controller::new(api, watcher::Config::default())
         .run(

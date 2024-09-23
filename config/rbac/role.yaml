@@ -105,3 +105,17 @@ rules:
   - patch
   - update
   - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: helm-manager-impersonator
+rules:
+- apiGroups:
+  - ""
+  resourceNames:
+  - system:serviceaccount:caapf-system:caapf-helm-manager
+  resources:
+  - serviceaccounts
+  verbs:
+  - impersonate
