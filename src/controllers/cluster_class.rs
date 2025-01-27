@@ -48,7 +48,8 @@ impl From<&ClusterClass> for ClusterGroup {
                     ),
                     ..Default::default()
                 }),
-            }.into(),
+            }
+            .into(),
             status: Default::default(),
         }
     }
@@ -57,9 +58,9 @@ impl From<&ClusterClass> for ClusterGroup {
 impl FleetBundle for FleetClusterClassBundle {
     #[allow(refining_impl_trait)]
     async fn sync(&self, ctx: Arc<Context>) -> GroupSyncResult<Action> {
-        match self.config.cluster_class_patch_enabled() {
-            true => patch(ctx, self.fleet_group.clone()).await?,
-            false => get_or_create(ctx.clone(), self.fleet_group.clone()).await?,
+        get_or_create(ctx.clone(), self.fleet_group.clone()).await?;
+        if self.config.cluster_class_patch_enabled() {
+            patch(ctx, self.fleet_group.clone()).await?;
         };
 
         Ok(Action::await_change())

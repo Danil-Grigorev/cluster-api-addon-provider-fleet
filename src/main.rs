@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
             let fleet_config_controller =
                 controller::run_fleet_addon_config_controller(state.clone());
             let cluster_controller = controller::run_cluster_controller(state.clone());
-            let cluster_class_controller = controller::run_cluster_class_controller(state.clone());
+            // let cluster_class_controller = controller::run_cluster_class_controller(state.clone());
 
             // Start web server
             let server = HttpServer::new(move || {
@@ -56,12 +56,12 @@ async fn main() -> anyhow::Result<()> {
             .run();
 
             tokio::join!(
-                cluster_controller,
-                cluster_class_controller,
+                server,
                 fleet_config_controller,
-                server
+                cluster_controller,
+                // cluster_class_controller,
             )
-            .3?;
+            .0?;
         }
     };
     Ok(())

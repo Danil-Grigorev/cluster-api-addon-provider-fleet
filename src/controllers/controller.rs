@@ -106,7 +106,7 @@ where
     api.patch(
         &res.name_any(),
         &PatchParams::apply("addon-provider-fleet"),
-        &Patch::Apply(res.clone()),
+        &Patch::Merge(res.clone()),
     )
     .await
     .map_err(PatchError::Patch)?;

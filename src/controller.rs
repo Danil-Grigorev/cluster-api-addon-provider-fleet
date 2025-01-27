@@ -95,7 +95,8 @@ pub async fn run_fleet_addon_config_controller(state: State) {
             state.to_context(client.clone()),
         )
         .for_each(|_| futures::future::ready(()));
-    tokio::join!(fleet_addon_config_controller);
+    
+        fleet_addon_config_controller.await
 }
 
 pub async fn run_fleet_helm_controller(state: State) {
@@ -209,10 +210,6 @@ pub async fn run_cluster_class_controller(state: State) {
         .await
         .expect("failed to create kube Client");
 
-    let (reader, writer) = reflector::store_shared(1024);
-    let subscriber = writer
-        .subscribe()
-        .expect("subscribe for cluster group updates successfully");
     let fleet_groups = watcher(
         Api::<ClusterGroup>::all(client.clone()),
         Config::default().any_semantic(),
@@ -222,19 +219,8 @@ pub async fn run_cluster_class_controller(state: State) {
         cg.managed_fields_mut().clear();
         cg.status = None;
     })
-    .reflect_shared(writer)
     .touched_objects()
-    .predicate_filter(predicates::resource_version)
-    .for_each(|_| futures::future::ready(()));
-
-    let group_controller = Controller::for_shared_stream(subscriber.clone(), reader)
-        .shutdown_on_signal()
-        .run(
-            ClusterGroup::reconcile,
-            error_policy,
-            state.to_context(client.clone()),
-        )
-        .for_each(|_| futures::future::ready(()));
+    .predicate_filter(predicates::resource_version);
 
     let (reader, writer) = reflector::store();
     let cluster_classes = watcher(
@@ -247,12 +233,8 @@ pub async fn run_cluster_class_controller(state: State) {
     .touched_objects()
     .predicate_filter(predicates::resource_version);
 
-    let filtered = subscriber
-        .map(|s| Ok(s.deref().clone()))
-        .predicate_filter(crate::predicates::generation_with_deletion)
-        .filter_map(|s| future::ready(s.ok().map(Arc::new)));
     let cluster_class_controller = Controller::for_stream(cluster_classes, reader)
-        .owns_shared_stream(filtered)
+        .owns_stream(fleet_groups)
         .shutdown_on_signal()
         .run(
             ClusterClass::reconcile,
@@ -261,10 +243,7 @@ pub async fn run_cluster_class_controller(state: State) {
         )
         .for_each(|_| futures::future::ready(()));
 
-    tokio::select! {
-        _ = fleet_groups => {},
-        _ = futures::future::join(group_controller, cluster_class_controller) => {},
-    };
+    tokio::join! {cluster_class_controller};
 }
 
 fn error_policy(doc: Arc<impl kube::Resource>, error: &Error, ctx: Arc<Context>) -> Action {
