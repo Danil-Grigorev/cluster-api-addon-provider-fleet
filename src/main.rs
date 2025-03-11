@@ -1,8 +1,11 @@
 use actix_web::{
-    get, middleware, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder,
+    get, middleware, post,
+    web::{self, post, Data},
+    App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 pub use controller::{self, telemetry, State};
 use prometheus::{Encoder, TextEncoder};
+use serde_json::json;
 
 #[get("/metrics")]
 async fn metrics(c: Data<State>, _req: HttpRequest) -> impl Responder {
@@ -50,6 +53,9 @@ async fn main() -> anyhow::Result<()> {
                     .service(index)
                     .service(health)
                     .service(metrics)
+                    .service(validate_topology)
+                    .service(generate_patches)
+                    .service(discover_variables)
             })
             .bind("0.0.0.0:8443")?
             .shutdown_timeout(5)
@@ -65,4 +71,19 @@ async fn main() -> anyhow::Result<()> {
         }
     };
     Ok(())
+}
+
+#[post("/hooks.runtime.cluster.x-k8s.io/v1alpha1/generatepatches/generate-patches")]
+async fn generate_patches() -> impl Responder {
+    web::Json(json!({}))
+}
+
+#[post("/hooks.runtime.cluster.x-k8s.io/v1alpha1/validatetopology/validate-topology")]
+async fn validate_topology() -> impl Responder {
+    web::Json(json!({}))
+}
+
+#[post("/hooks.runtime.cluster.x-k8s.io/v1alpha1/discovery/discover-variables")]
+async fn discover_variables() -> impl Responder {
+    web::Json(json!({}))
 }
