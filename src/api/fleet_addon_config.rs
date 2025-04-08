@@ -1,5 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
+use educe::Educe;
 use fleet_api_rs::fleet_cluster::{ClusterAgentEnvVars, ClusterAgentTolerations};
 use k8s_openapi::{
     api::core::v1::{ConfigMap, ObjectReference},
@@ -20,19 +21,23 @@ pub const EXPERIMENTAL_OCI_STORAGE: &str = "EXPERIMENTAL_OCI_STORAGE";
 pub const EXPERIMENTAL_HELM_OPS: &str = "EXPERIMENTAL_HELM_OPS";
 
 /// This provides a config for fleet addon functionality
-#[derive(CustomResource, Deserialize, Serialize, Clone, Default, Debug, KubeSchema)]
+#[derive(CustomResource, Deserialize, Serialize, Clone, Debug, KubeSchema, Educe)]
+#[educe(Default)]
 #[kube(
     kind = "FleetAddonConfig",
     group = "addons.cluster.x-k8s.io",
     version = "v1alpha1",
     status = "FleetAddonConfigStatus",
-    validation = "self.metadata.name == 'fleet-addon-config'"
+    derive = "Default",
+    validation = "self.metadata.name == 'fleet-addon-config'",
 )]
 #[serde(rename_all = "camelCase")]
 pub struct FleetAddonConfigSpec {
     /// Enable clusterClass controller functionality.
     ///
-    /// This will create Fleet `ClusterGroups` for each `ClusterClaster` with the same name.
+    /// This will create Fleet ClusterGroups for each ClusterClaster with the same name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(ClusterClassConfig::default())))]
     pub cluster_class: Option<ClusterClassConfig>,
 
     /// Enable Cluster config funtionality.
@@ -40,75 +45,64 @@ pub struct FleetAddonConfigSpec {
     /// This will create Fleet Cluster for each Cluster with the same name.
     /// In case the cluster specifies topology.class, the name of the `ClusterClass`
     /// will be added to the Fleet Cluster labels.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(ClusterConfig::default())))]
     pub cluster: Option<ClusterConfig>,
 
     // Fleet chart configuratoin options
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(FleetConfig::default())))]
     pub config: Option<FleetConfig>,
 
     // Fleet chart installation options
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub install: Option<FleetInstall>,
-}
-
-impl Default for FleetAddonConfig {
-    fn default() -> Self {
-        Self {
-            metadata: ObjectMeta::default(),
-            spec: FleetAddonConfigSpec {
-                cluster_class: Some(ClusterClassConfig::default()),
-                cluster: Some(ClusterConfig::default()),
-                config: Some(FleetConfig::default()),
-                ..Default::default()
-            },
-            status: Option::default(),
-        }
-    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FleetAddonConfigStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub installed_version: Option<String>,
     /// conditions represents the observations of a Fleet addon current state.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conditions: Vec<Condition>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, Educe)]
+#[educe(Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterClassConfig {
     /// Setting to disable setting owner references on the created resources
+    #[educe(Default(expression = Some(true)))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub set_owner_references: Option<bool>,
 
     /// Allow to patch resources, maintaining the desired state.
     /// If is not set, resources will only be re-created in case of removal.
+    #[educe(Default(expression = Some(true)))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patch_resource: Option<bool>,
 }
 
-impl Default for ClusterClassConfig {
-    fn default() -> Self {
-        Self {
-            patch_resource: Some(true),
-            set_owner_references: Some(true),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, Educe)]
+#[educe(Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterConfig {
     /// Apply a `ClusterGroup` for a `ClusterClass` referenced from a different namespace.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(true)))]
     pub apply_class_group: Option<bool>,
 
     /// Allow to patch resources, maintaining the desired state.
     /// If is not set, resources will only be re-created in case of removal.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(true)))]
     pub patch_resource: Option<bool>,
 
     /// Setting to disable setting owner references on the created resources
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(true)))]
     pub set_owner_references: Option<bool>,
 
     /// Naming settings for the fleet cluster
@@ -117,6 +111,7 @@ pub struct ClusterConfig {
 
     /// Namespace selection for the fleet agent
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(AGENT_NAMESPACE.to_string())))]
     pub agent_namespace: Option<String>,
 
     /// Agent taint toleration settings for every cluster
@@ -126,6 +121,7 @@ pub struct ClusterConfig {
     /// Host network allows to deploy agent configuration using hostNetwork: true setting
     /// which eludes dependency on the CNI configuration for the cluster.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(true)))]
     pub host_network: Option<bool>,
 
     /// `AgentEnvVars` are extra environment variables to be added to the agent deployment.
@@ -139,6 +135,7 @@ pub struct ClusterConfig {
 
     #[cfg(feature = "agent-initiated")]
     /// Prepare initial cluster for agent initiated connection
+    #[educe(Default(expression = Some(true)))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_initiated: Option<bool>,
 }
@@ -246,25 +243,8 @@ pub struct NamingStrategy {
     pub suffix: Option<String>,
 }
 
-impl Default for ClusterConfig {
-    fn default() -> Self {
-        Self {
-            apply_class_group: Some(true),
-            set_owner_references: Some(true),
-            naming: Option::default(),
-            agent_namespace: AGENT_NAMESPACE.to_string().into(),
-            host_network: Some(true),
-            #[cfg(feature = "agent-initiated")]
-            agent_initiated: Some(true),
-            selectors: Selectors::default(),
-            patch_resource: Some(true),
-            agent_env_vars: None,
-            agent_tolerations: None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Educe)]
+#[educe(Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FleetConfig {
     /// fleet server url configuration options
@@ -272,31 +252,25 @@ pub struct FleetConfig {
     pub server: Option<Server>,
     /// feature gates controlling experimental features
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[educe(Default(expression = Some(FeatureGates::default())))]
     pub feature_gates: Option<FeatureGates>,
     /// Enable auto-installation of a fleet agent in the local cluster.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bootstrap_local_cluster: Option<bool>,
 }
 
-impl Default for FleetConfig {
-    fn default() -> Self {
-        Self {
-            server: Option::default(),
-            feature_gates: Some(FeatureGates::default()),
-            bootstrap_local_cluster: None,
-        }
-    }
-}
-
 /// Feature toggles for enabling or disabling experimental functionality.
 /// This struct controls access to specific experimental features.
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Educe)]
+#[educe(Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureGates {
     /// Enables experimental OCI  storage support.
+    #[educe(Default(expression = true))]
     pub experimental_oci_storage: bool,
 
     /// Enables experimental Helm operations support.
+    #[educe(Default(expression = true))]
     pub experimental_helm_ops: bool,
 
     // Enables syncing of feature gates to a ConfigMap.
@@ -347,19 +321,8 @@ impl FeatureGates {
     }
 }
 
-impl Default for FeatureGates {
-    fn default() -> Self {
-        Self {
-            // Unless is set otherwise, these features are enabled by CAAPF
-            experimental_oci_storage: true,
-            experimental_helm_ops: true,
-            config_map: None,
-        }
-    }
-}
-
-/// `FeaturesConfigMap` references a `ConfigMap` where to apply feature flags.
-/// If a `ConfigMap` is referenced, the controller will update it instead of upgrading the Fleet chart.
+/// FeaturesConfigMap references a ConfigMap where to apply feature flags.
+/// If a ConfigMap is referenced, the controller will update it instead of upgrading the Fleet chart.
 #[derive(Clone, Default, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FeaturesConfigMap {
@@ -393,7 +356,8 @@ pub struct FleetInstall {
     pub install_version: Install,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Educe)]
+#[educe(Default(expression = Install::FollowLatest(true)))]
 #[serde(rename_all = "camelCase")]
 pub enum Install {
     /// Follow the latest version of the chart on install
@@ -412,12 +376,6 @@ impl Install {
                 Install::Version(version.strip_prefix("v").unwrap_or(&version).into())
             }
         }
-    }
-}
-
-impl Default for Install {
-    fn default() -> Self {
-        Self::FollowLatest(true)
     }
 }
 
