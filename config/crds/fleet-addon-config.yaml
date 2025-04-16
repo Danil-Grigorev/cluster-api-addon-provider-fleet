@@ -118,6 +118,10 @@ spec:
                       type: object
                     nullable: true
                     type: array
+                  agentInitiated:
+                    description: Prepare initial cluster for agent initiated connection
+                    nullable: true
+                    type: boolean
                   agentNamespace:
                     description: Namespace selection for the fleet agent
                     nullable: true

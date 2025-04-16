@@ -188,6 +188,7 @@ impl Cluster {
         config?.agent_initiated?.then_some(true)?;
 
         ClusterRegistrationToken {
+            types: Some(TypeMeta::resource::<ClusterRegistrationToken>()),
             metadata: self.into(),
             spec: ClusterRegistrationTokenSpec {
                 ttl: Some("1h".into()),

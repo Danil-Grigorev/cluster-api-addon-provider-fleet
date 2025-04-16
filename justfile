@@ -69,15 +69,15 @@ build-agent-initiated: (_build "agent-initiated")
 build-otel: (_build "telemetry")
 
 # Build  docker image
-docker-build:
-    docker buildx build . -t {{ORG}}/{{NAME}}:{{TAG}}
+docker-build features="":
+    docker buildx build . -t {{ORG}}/{{NAME}}:{{TAG}} --build-arg features={{features}}
 
 # Push the docker images
 docker-push:
     docker push {{ORG}}/{{NAME}}:{{TAG}}
 
-build-and-load:
-    docker build . -t {{ORG}}/{{NAME}}:{{TAG}}
+build-and-load features="":
+    docker build . -t {{ORG}}/{{NAME}}:{{TAG}} --build-arg features={{features}}
     kind load docker-image {{ORG}}/{{NAME}}:{{TAG}} --name dev
 
 load-base features="":
@@ -151,7 +151,7 @@ install-capi: _download-clusterctl
 # Deploy will deploy the operator
 deploy features="": _download-kustomize
     just generate {{features}}
-    just build-and-load
+    just build-and-load {{features}}
     kustomize build config/default | kubectl apply -f -
     kubectl -n caapf-system rollout restart deployment/caapf-controller-manager
     kubectl --context kind-dev apply -f testdata/config.yaml
