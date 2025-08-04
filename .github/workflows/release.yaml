@@ -4,9 +4,13 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
 
 env:
-  TAG: ${{ github.ref_name }}
   IMAGE_NAME: ${{ github.repository }}
   REGISTRY: ghcr.io
 
@@ -17,6 +21,14 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Set TAG
+        id: set_tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.version }}" ]]; then
+            echo "TAG=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "TAG=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          fi
       - name: Install just
         run: cargo install just
       - name: setupGo
@@ -49,25 +61,25 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      discussions: write
-    needs: [build]
-    steps:
-      - name: Install just
-        run: cargo install just
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Update manifests
-        run: |
-          # this is quite naive, but i don't think we need more for now
-          sed -i "s/dev/${TAG}/g" config/default/manager_image_patch.yaml
-          just release-manifests
-      - name: Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create ${{ env.TAG }} --generate-notes --discussion-category "Announcements" metadata.yaml _out/addon-components.yaml
+  # release:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: write
+  #     discussions: write
+  #   needs: [build]
+  #   steps:
+  #     - name: Install just
+  #       run: cargo install just
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #     - name: Update manifests
+  #       run: |
+  #         # this is quite naive, but i don't think we need more for now
+  #         sed -i "s/dev/${TAG}/g" config/default/manager_image_patch.yaml
+  #         just release-manifests
+  #     - name: Release
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       run: gh release create ${{ env.TAG }} --generate-notes --discussion-category "Announcements" metadata.yaml _out/addon-components.yaml
