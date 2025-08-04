@@ -1206,7 +1206,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 [[package]]
 name = "helm-r2g"
 version = "0.1.0"
-source = "git+https://github.com/Danil-Grigorev/helm-r2g?rev=b671f5f#b671f5f3ce98fcd62efe401478d0b71ff274fcc7"
+source = "git+https://github.com/cluster-api-community/helm-r2g?tag=v0.0.1#27d4e3e820250cb7dbf6cdb2b6279224bfd6b50b"
 dependencies = [
  "rust2go",
 ]
